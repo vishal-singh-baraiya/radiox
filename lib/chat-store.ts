@@ -18,6 +18,7 @@ interface ChatState {
   setUsername: (username: string) => void;
   addMessage: (message: ChatMessage) => Promise<void>;
   setMessages: (messages: ChatMessage[]) => void;
+  setActiveUsers: (users: Array<{ username: string; color: string }>) => void;
   addActiveUser: (username: string, color: string) => void;
   removeActiveUser: (username: string) => void;
 }
@@ -50,6 +51,11 @@ export const useChatStore = create<ChatState>((set) => ({
   },
 
   setMessages: (messages) => set({ messages }),
+
+  setActiveUsers: (users) =>
+    set({
+      activeUsers: users.reduce((acc, { username, color }) => ({ ...acc, [username]: color }), {}),
+    }),
 
   addActiveUser: (username, color) =>
     set((state) => ({
