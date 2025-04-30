@@ -61,7 +61,7 @@
     "immer": "latest",
     "use-sync-external-store": "latest",
     "zustand": "latest",
-    "dexie": "^4.0.8"
+    "dexie": "latest"
   },
   "devDependencies": {
     "@types/node": "^22",
