@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useChatStore } from "@/lib/chat-store";
-import { UsernameModal } from "@/components/username-modal";
+import { UsernameModal } from "@/components/chat/username-modal";
 import { cn } from "@/lib/utils";
 import Dexie from "dexie";
 
