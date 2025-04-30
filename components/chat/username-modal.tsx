@@ -1,6 +1,5 @@
 "use client";
 
-import type React from "react";
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -28,29 +27,20 @@ export function UsernameModal({ isOpen, onClose, onUsernameSet, activeUsers }: U
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
     const trimmedUsername = username.trim();
 
     if (!trimmedUsername) {
       setError("Username cannot be empty");
       return;
     }
-
-    if (trimmedUsername.length < 3) {
-      setError("Username must be at least 3 characters");
+    if (trimmedUsername.length < 3 || trimmedUsername.length > 15) {
+      setError("Username must be 3-15 characters");
       return;
     }
-
-    if (trimmedUsername.length > 15) {
-      setError("Username must be less than 15 characters");
-      return;
-    }
-
     if (!/^[a-zA-Z0-9_-]+$/.test(trimmedUsername)) {
-      setError("Username can only contain letters, numbers, underscores and hyphens");
+      setError("Username can only contain letters, numbers, underscores, and hyphens");
       return;
     }
-
     if (Object.keys(activeUsers).includes(trimmedUsername)) {
       setError("Username is already taken");
       return;
