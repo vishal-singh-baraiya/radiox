@@ -1,149 +1,168 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState, useEffect, useRef } from "react"
-import { MessageSquare, X, ChevronUp, ChevronDown, Send, Users } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { useChatStore } from "@/lib/chat-store"
-import { UsernameModal } from "@/components/chat/username-modal"
-import { cn } from "@/lib/utils"
+import type React from "react";
+import { useState, useEffect, useRef } from "react";
+import { MessageSquare, X, ChevronUp, ChevronDown, Send, Users } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { useChatStore } from "@/lib/chat-store";
+import { UsernameModal } from "@/components/chat/username-modal";
+import { cn } from "@/lib/utils";
+import Dexie from "dexie";
 
 export function ChatPanel() {
-  const [isOpen, setIsOpen] = useState(false)
-  const [message, setMessage] = useState("")
-  const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false)
-  const { username, messages, addMessage, activeUsers, setUsername, addActiveUser, removeActiveUser } = useChatStore()
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
-  const broadcastChannel = useRef<BroadcastChannel | null>(null)
+  const [isOpen, setIsOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
+  const { username, messages, addMessage, activeUsers, setUsername, addActiveUser, removeActiveUser, setMessages } =
+    useChatStore();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
 
-  // Initialize broadcast channel
+  // Load initial messages from IndexedDB
   useEffect(() => {
-    broadcastChannel.current = new BroadcastChannel("radio-x-chat")
+    const loadMessages = async () => {
+      const db = new Dexie("RadioXChatDB");
+      await db.open();
+      const allMessages = await db.table("messages").orderBy("timestamp").toArray();
+      setMessages(allMessages);
+    };
+    loadMessages();
+  }, [setMessages]);
 
-    broadcastChannel.current.onmessage = (event) => {
-      const data = event.data
+  // Initialize SSE
+  useEffect(() => {
+    const SSE_URL = "/api/chat"; // Vercel deployment will use your domain, e.g., https://your-vercel-app.vercel.app/api/chat
+    eventSourceRef.current = new EventSource(SSE_URL);
 
-      if (data.type === "message") {
-        addMessage({
-          id: data.id,
-          username: data.username,
-          text: data.text,
-          timestamp: data.timestamp,
-          color: data.color,
-        })
-      } else if (data.type === "user-joined") {
-        addActiveUser(data.username, data.color)
-      } else if (data.type === "user-left") {
-        removeActiveUser(data.username)
+    eventSourceRef.current.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === "message") {
+          addMessage({
+            id: data.id,
+            username: data.username,
+            text: data.text,
+            timestamp: data.timestamp,
+            color: data.color,
+          });
+        } else if (data.type === "user-joined") {
+          addActiveUser(data.username, data.color);
+        } else if (data.type === "user-left") {
+          removeActiveUser(data.username);
+        }
+      } catch (err) {
+        console.error("Error processing SSE message:", err);
       }
-    }
+    };
+
+    eventSourceRef.current.onerror = () => {
+      console.error("SSE error, reconnecting...");
+      // EventSource automatically retries
+    };
 
     return () => {
-      if (broadcastChannel.current) {
-        broadcastChannel.current.close()
-      }
-    }
-  }, [addMessage, addActiveUser, removeActiveUser])
+      eventSourceRef.current?.close();
+    };
+  }, [addMessage, addActiveUser, removeActiveUser]);
 
   // Announce presence when username is set
   useEffect(() => {
-    if (username && broadcastChannel.current) {
-      const userColor = generateColorFromUsername(username)
-
-      // Announce joining
-      broadcastChannel.current.postMessage({
+    if (username) {
+      const userColor = generateColorFromUsername(username);
+      const joinMessage = {
         type: "user-joined",
         username,
         color: userColor,
-      })
+      };
+      fetch("/api/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(joinMessage),
+      });
+      addActiveUser(username, userColor);
 
-      // Add self to active users
-      addActiveUser(username, userColor)
-
-      // Set up cleanup on unmount
       return () => {
-        if (broadcastChannel.current) {
-          broadcastChannel.current.postMessage({
-            type: "user-left",
-            username,
-          })
-        }
-      }
+        const leaveMessage = {
+          type: "user-left",
+          username,
+        };
+        fetch("/api/send", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(leaveMessage),
+        });
+      };
     }
-  }, [username, addActiveUser])
+  }, [username, addActiveUser]);
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   // Focus input when chat is opened
   useEffect(() => {
     if (isOpen && username) {
-      inputRef.current?.focus()
+      inputRef.current?.focus();
     }
-  }, [isOpen, username])
+  }, [isOpen, username]);
 
   // Check if username is set, if not open modal
   useEffect(() => {
     if (isOpen && !username) {
-      setIsUsernameModalOpen(true)
+      setIsUsernameModalOpen(true);
     }
-  }, [isOpen, username])
+  }, [isOpen, username]);
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault()
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-    if (!message.trim() || !username) return
+    if (!message.trim() || !username) return;
 
-    const newMessage = {
-      id: Date.now().toString(),
+    const newMessage: ChatMessage = {
+      id: Date.now().toString() + "-" + Math.random().toString(36).substr(2, 9),
       username,
       text: message.trim(),
       timestamp: new Date().toISOString(),
       color: generateColorFromUsername(username),
-    }
+    };
 
-    // Add to local state
-    addMessage(newMessage)
-
-    // Broadcast to other clients
-    if (broadcastChannel.current) {
-      broadcastChannel.current.postMessage({
+    await addMessage(newMessage);
+    await fetch("/api/send", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
         type: "message",
         ...newMessage,
-      })
-    }
+      }),
+    });
 
-    setMessage("")
-  }
+    setMessage("");
+  };
 
   const handleUsernameSet = (name: string) => {
-    setUsername(name)
-    setIsUsernameModalOpen(false)
-  }
+    setUsername(name);
+    setIsUsernameModalOpen(false);
+  };
 
   const toggleChat = () => {
-    setIsOpen(!isOpen)
+    setIsOpen(!isOpen);
     if (!isOpen && !username) {
-      setIsUsernameModalOpen(true)
+      setIsUsernameModalOpen(true);
     }
-  }
+  };
 
-  // Generate a consistent color based on username
   function generateColorFromUsername(username: string): string {
-    let hash = 0
+    let hash = 0;
     for (let i = 0; i < username.length; i++) {
-      hash = username.charCodeAt(i) + ((hash << 5) - hash)
+      hash = username.charCodeAt(i) + ((hash << 5) - hash);
     }
 
-    // Use a set of predefined colors that work well with dark theme
     const colors = [
       "text-blue-400",
       "text-green-400",
@@ -155,10 +174,10 @@ export function ChatPanel() {
       "text-orange-400",
       "text-teal-400",
       "text-cyan-400",
-    ]
+    ];
 
-    const index = Math.abs(hash) % colors.length
-    return colors[index]
+    const index = Math.abs(hash) % colors.length;
+    return colors[index];
   }
 
   return (
@@ -257,5 +276,5 @@ export function ChatPanel() {
         activeUsers={activeUsers}
       />
     </>
-  )
+  );
 }
