@@ -1,5 +1,5 @@
 {
-  "name": "radiox",
+  "name": "my-v0-project",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -61,6 +61,7 @@
     "immer": "latest",
     "use-sync-external-store": "latest",
     "zustand": "latest",
+    "peerjs": "latest",
     "dexie": "latest"
   },
   "devDependencies": {
