@@ -13,13 +13,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
     }
 
-    // Additional validation for security
-    if (text && text.length > 200) {
-      return NextResponse.json({ error: "Message too long" }, { status: 400 });
+    if (type === "message" && (!text || text.length > 200)) {
+      return NextResponse.json({ error: "Invalid message" }, { status: 400 });
     }
 
-    const message = { type, id, username, text, timestamp, color };
-    broadcastMessage(message);
+    broadcastMessage({ type, id, username, text, timestamp, color });
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (err) {
     console.error("Error sending message:", err);
