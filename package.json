@@ -60,7 +60,7 @@
     "zod": "^3.24.1",
     "immer": "latest",
     "use-sync-external-store": "latest",
-    "zustand": "latest"
+    "zustand": "latest",
     "dexie": "^4.0.8"
   },
   "devDependencies": {
