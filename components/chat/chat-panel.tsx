@@ -1,6 +1,5 @@
 "use client";
 
-import type React from "react";
 import { useState, useEffect, useRef } from "react";
 import { MessageSquare, X, ChevronUp, ChevronDown, Send, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useChatStore } from "@/lib/chat-store";
-import { UsernameModal } from "@/components/chat/username-modal";
+import { UsernameModal } from "@/components/username-modal";
 import { cn } from "@/lib/utils";
 import Dexie from "dexie";
 
@@ -17,7 +16,7 @@ export function ChatPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [isUsernameModalOpen, setIsUsernameModalOpen] = useState(false);
-  const { username, messages, addMessage, activeUsers, setUsername, addActiveUser, removeActiveUser, setMessages } =
+  const { username, messages, addMessage, activeUsers, setUsername, setActiveUsers, addActiveUser, removeActiveUser, setMessages } =
     useChatStore();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -36,7 +35,7 @@ export function ChatPanel() {
 
   // Initialize SSE
   useEffect(() => {
-    const SSE_URL = "/api/chat"; // Vercel deployment will use your domain, e.g., https://your-vercel-app.vercel.app/api/chat
+    const SSE_URL = "/api/chat";
     eventSourceRef.current = new EventSource(SSE_URL);
 
     eventSourceRef.current.onmessage = (event) => {
@@ -54,6 +53,8 @@ export function ChatPanel() {
           addActiveUser(data.username, data.color);
         } else if (data.type === "user-left") {
           removeActiveUser(data.username);
+        } else if (data.type === "users") {
+          setActiveUsers(data.users);
         }
       } catch (err) {
         console.error("Error processing SSE message:", err);
@@ -61,58 +62,48 @@ export function ChatPanel() {
     };
 
     eventSourceRef.current.onerror = () => {
-      console.error("SSE error, reconnecting...");
-      // EventSource automatically retries
+      console.error("SSE error");
     };
 
     return () => {
       eventSourceRef.current?.close();
     };
-  }, [addMessage, addActiveUser, removeActiveUser]);
+  }, [addMessage, addActiveUser, removeActiveUser, setActiveUsers]);
 
-  // Announce presence when username is set
+  // Announce presence
   useEffect(() => {
     if (username) {
-      const userColor = generateColorFromUsername(username);
-      const joinMessage = {
-        type: "user-joined",
-        username,
-        color: userColor,
-      };
+      const color = generateColorFromUsername(username);
       fetch("/api/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(joinMessage),
+        body: JSON.stringify({ type: "user-joined", username, color }),
       });
-      addActiveUser(username, userColor);
+      addActiveUser(username, color);
 
       return () => {
-        const leaveMessage = {
-          type: "user-left",
-          username,
-        };
         fetch("/api/send", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(leaveMessage),
+          body: JSON.stringify({ type: "user-left", username }),
         });
       };
     }
   }, [username, addActiveUser]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Focus input when chat is opened
+  // Focus input
   useEffect(() => {
     if (isOpen && username) {
       inputRef.current?.focus();
     }
   }, [isOpen, username]);
 
-  // Check if username is set, if not open modal
+  // Open username modal
   useEffect(() => {
     if (isOpen && !username) {
       setIsUsernameModalOpen(true);
@@ -121,10 +112,9 @@ export function ChatPanel() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!message.trim() || !username) return;
 
-    const newMessage: ChatMessage = {
+    const newMessage = {
       id: Date.now().toString() + "-" + Math.random().toString(36).substr(2, 9),
       username,
       text: message.trim(),
@@ -136,10 +126,7 @@ export function ChatPanel() {
     await fetch("/api/send", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        type: "message",
-        ...newMessage,
-      }),
+      body: JSON.stringify({ type: "message", ...newMessage }),
     });
 
     setMessage("");
@@ -162,7 +149,6 @@ export function ChatPanel() {
     for (let i = 0; i < username.length; i++) {
       hash = username.charCodeAt(i) + ((hash << 5) - hash);
     }
-
     const colors = [
       "text-blue-400",
       "text-green-400",
@@ -175,9 +161,7 @@ export function ChatPanel() {
       "text-teal-400",
       "text-cyan-400",
     ];
-
-    const index = Math.abs(hash) % colors.length;
-    return colors[index];
+    return colors[Math.abs(hash) % colors.length];
   }
 
   return (
@@ -186,7 +170,7 @@ export function ChatPanel() {
         className={cn(
           "fixed bottom-16 right-4 z-40 w-80 sm:w-96 transition-all duration-300 ease-in-out",
           isOpen ? "translate-y-0" : "translate-y-full",
-          isOpen ? "opacity-100" : "opacity-0 pointer-events-none",
+          isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
         )}
       >
         <div className="glass-card rounded-t-xl overflow-hidden border-b-0 flex flex-col h-96">
