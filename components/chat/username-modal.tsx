@@ -1,65 +1,63 @@
-"use client"
+"use client";
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { AlertCircle } from "lucide-react"
+import type React from "react";
+import { useState, useEffect } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { AlertCircle } from "lucide-react";
 
 interface UsernameModalProps {
-  isOpen: boolean
-  onClose: () => void
-  onUsernameSet: (username: string) => void
-  activeUsers: Record<string, string>
+  isOpen: boolean;
+  onClose: () => void;
+  onUsernameSet: (username: string) => void;
+  activeUsers: Record<string, string>;
 }
 
 export function UsernameModal({ isOpen, onClose, onUsernameSet, activeUsers }: UsernameModalProps) {
-  const [username, setUsername] = useState("")
-  const [error, setError] = useState<string | null>(null)
+  const [username, setUsername] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) {
-      setError(null)
-      setUsername("")
+      setError(null);
+      setUsername("");
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
-    const trimmedUsername = username.trim()
+    const trimmedUsername = username.trim();
 
     if (!trimmedUsername) {
-      setError("Username cannot be empty")
-      return
+      setError("Username cannot be empty");
+      return;
     }
 
     if (trimmedUsername.length < 3) {
-      setError("Username must be at least 3 characters")
-      return
+      setError("Username must be at least 3 characters");
+      return;
     }
 
     if (trimmedUsername.length > 15) {
-      setError("Username must be less than 15 characters")
-      return
+      setError("Username must be less than 15 characters");
+      return;
     }
 
     if (!/^[a-zA-Z0-9_-]+$/.test(trimmedUsername)) {
-      setError("Username can only contain letters, numbers, underscores and hyphens")
-      return
+      setError("Username can only contain letters, numbers, underscores and hyphens");
+      return;
     }
 
-    // Check if username is already taken
     if (Object.keys(activeUsers).includes(trimmedUsername)) {
-      setError("Username is already taken")
-      return
+      setError("Username is already taken");
+      return;
     }
 
-    onUsernameSet(trimmedUsername)
-  }
+    onUsernameSet(trimmedUsername);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -77,8 +75,8 @@ export function UsernameModal({ isOpen, onClose, onUsernameSet, activeUsers }: U
                 className="glass-input"
                 value={username}
                 onChange={(e) => {
-                  setUsername(e.target.value)
-                  setError(null)
+                  setUsername(e.target.value);
+                  setError(null);
                 }}
                 placeholder="Enter a unique username"
                 autoFocus
@@ -102,5 +100,5 @@ export function UsernameModal({ isOpen, onClose, onUsernameSet, activeUsers }: U
         </form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }
